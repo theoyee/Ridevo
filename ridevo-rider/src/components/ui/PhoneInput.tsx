@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { TextInput, View, type TextInputProps } from "react-native";
-
 import { CircleAlert } from "lucide-react-native";
+import { useState, type ComponentPropsWithRef } from "react";
+import { TextInput, View } from "react-native";
 
-import { Typography } from "./Typography";
+import { Typography } from "@/components/ui/Typography";
 
-interface PhoneInputProps extends TextInputProps {
+type PhoneInputProps = ComponentPropsWithRef<typeof TextInput> & {
   label?: string;
   error?: string;
-}
+};
 
 export function PhoneInput({
+  ref,
   label = "Phone number",
   error,
   editable = true,
@@ -18,11 +18,11 @@ export function PhoneInput({
   onBlur,
   ...props
 }: PhoneInputProps) {
-  const [focused, setFocused] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
-  const borderColor = error
+  const borderClass = error
     ? "border-error"
-    : focused
+    : isFocused
       ? "border-primary"
       : "border-border";
 
@@ -31,25 +31,25 @@ export function PhoneInput({
       <Typography variant="bodyMedium">{label}</Typography>
 
       <View
-        className={`
-          min-h-[60px] flex-row items-center
-          rounded-2xl border bg-background px-4
-          ${borderColor}
-          ${!editable ? "opacity-60" : ""}
-        `}
+        className={[
+          "min-h-[60px] flex-row items-center rounded-2xl",
+          "border bg-background px-4",
+          borderClass,
+          !editable ? "opacity-60" : "",
+        ].join(" ")}
       >
+        {/* Country code */}
         <View className="flex-row items-center gap-2">
-          <Typography variant="h3">🇳🇬</Typography>
+          <Typography variant="body">🇳🇬</Typography>
 
           <Typography variant="bodyMedium">+234</Typography>
         </View>
 
+        {/* Divider */}
         <View className="mx-3 h-6 w-px bg-border" />
 
+        {/* Native phone input */}
         <TextInput
-          {...props}
-          editable={editable}
-          accessibilityLabel={label}
           keyboardType="phone-pad"
           autoComplete="tel"
           textContentType="telephoneNumber"
@@ -57,26 +57,31 @@ export function PhoneInput({
           autoCapitalize="none"
           placeholder="800 000 0000"
           placeholderTextColor="#98A2B3"
-          maxLength={24}
           selectionColor="#101820"
+          maxLength={24}
           className="min-h-[58px] flex-1 font-medium text-lg text-primary"
+          {...props}
+          ref={ref}
+          editable={editable}
+          accessibilityLabel={label}
           onFocus={(event) => {
-            setFocused(true);
+            setIsFocused(true);
             onFocus?.(event);
           }}
           onBlur={(event) => {
-            setFocused(false);
+            setIsFocused(false);
             onBlur?.(event);
           }}
         />
       </View>
 
+      {/* Validation error */}
       {error ? (
         <View
-          className="flex-row items-center gap-2"
           accessibilityLiveRegion="polite"
+          className="flex-row items-center gap-2"
         >
-          <CircleAlert size={14} color="#DC2626" />
+          <CircleAlert size={14} color="#DC2626" strokeWidth={2} />
 
           <Typography variant="caption" className="flex-1 text-error">
             {error}
