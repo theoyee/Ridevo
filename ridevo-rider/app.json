@@ -38,7 +38,24 @@
       ],
       "expo-secure-store",
       "expo-image",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Ridevo to access your location to find nearby rides and accurate pickup points.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#101820",
+          "defaultChannel": "ride-updates"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

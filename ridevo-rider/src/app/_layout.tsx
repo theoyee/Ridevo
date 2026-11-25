@@ -5,6 +5,10 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
+import "@/features/notifications/services/notification-handler";
+
+import { useNotificationBootstrap } from "@/features/notifications/hooks/useNotificationBootstrap";
+
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -44,6 +48,8 @@ export default function RootLayout() {
     "Inter-SemiBold": Inter_600SemiBold,
     "Inter-Bold": Inter_700Bold,
   });
+
+  useNotificationBootstrap();
 
   useEffect(() => {
     if (loaded || error) {
