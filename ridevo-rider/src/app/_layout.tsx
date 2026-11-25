@@ -19,6 +19,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
 void SplashScreen.preventAutoHideAsync();
@@ -49,6 +50,12 @@ export default function RootLayout() {
       void SplashScreen.hideAsync();
     }
   }, [loaded, error]);
+
+  const hydrate = useAuthStore((state) => state.hydrate);
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
 
   if (!loaded && !error) {
     return null;
