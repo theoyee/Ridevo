@@ -9,12 +9,14 @@ export default function TabsLayout() {
 
   const session = useAuthStore((state) => state.session);
 
-  // Wait for authentication initialization.
   if (status === "initializing") {
     return null;
   }
 
-  // Prevent unauthenticated dashboard access.
+  if (status === "error") {
+    return <Redirect href="/" />;
+  }
+
   if (!session) {
     return <Redirect href="/(auth)/welcome" />;
   }
