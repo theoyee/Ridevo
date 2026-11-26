@@ -99,6 +99,7 @@ export function OtpInput({
           onBlur?.(event);
         }}
         style={styles.input}
+        className="hidden"
       />
     </View>
   );

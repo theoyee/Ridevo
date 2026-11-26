@@ -169,4 +169,22 @@ export const locationService = {
   async openSettings(): Promise<void> {
     await Linking.openSettings();
   },
+
+  async watchLocation(
+    onLocation: (location: UserLocation) => void,
+  ): Promise<Location.LocationSubscription> {
+    await ensureLocationAvailable();
+
+    return Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 3000,
+        distanceInterval: 5,
+        mayShowUserSettingsDialog: false,
+      },
+      (position) => {
+        onLocation(mapLocation(position, "current"));
+      },
+    );
+  },
 };
