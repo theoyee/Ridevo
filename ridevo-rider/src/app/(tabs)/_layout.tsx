@@ -1,22 +1,45 @@
 import { Redirect, Tabs } from "expo-router";
-import { ClipboardList, House, UserRound, Wallet } from "lucide-react-native";
+import {
+  ClipboardList,
+  House,
+  UserRound,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react-native";
+import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { getAuthenticatedRoute } from "@/features/auth/utils/auth-navigation";
-import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export const unstable_settings = {
   initialRouteName: "index",
 };
+
+interface TabIconProps {
+  Icon: LucideIcon;
+  color: string;
+  focused: boolean;
+}
+
+function TabIcon({ Icon, color, focused }: TabIconProps) {
+  return (
+    <View
+      className="h-8 w-16 items-center justify-center rounded-full"
+      style={{
+        backgroundColor: focused ? "#C8F560" : "transparent",
+      }}
+    >
+      <Icon size={24} color={color} strokeWidth={focused ? 2.4 : 1.8} />
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const status = useAuthStore((state) => state.status);
   const session = useAuthStore((state) => state.session);
 
   const { bottom } = useSafeAreaInsets();
-
-  // console.log(bottom);
 
   if (status === "initializing") {
     return null;
@@ -39,7 +62,6 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      // initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#101820",
@@ -67,19 +89,9 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
+          tabBarAccessibilityLabel: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <View
-              className="h-8 w-16 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: focused ? "#C8F560" : "transparent",
-              }}
-            >
-              <House
-                size={24}
-                color={color}
-                strokeWidth={focused ? 2.4 : 1.8}
-              />
-            </View>
+            <TabIcon Icon={House} color={color} focused={focused} />
           ),
         }}
       />
@@ -88,19 +100,9 @@ export default function TabsLayout() {
         name="activity"
         options={{
           title: "Activity",
+          tabBarAccessibilityLabel: "Ride activity",
           tabBarIcon: ({ color, focused }) => (
-            <View
-              className="h-8 w-16 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: focused ? "#C8F560" : "transparent",
-              }}
-            >
-              <ClipboardList
-                size={24}
-                color={color}
-                strokeWidth={focused ? 2.4 : 1.8}
-              />
-            </View>
+            <TabIcon Icon={ClipboardList} color={color} focused={focused} />
           ),
         }}
       />
@@ -109,19 +111,9 @@ export default function TabsLayout() {
         name="wallet"
         options={{
           title: "Wallet",
+          tabBarAccessibilityLabel: "Wallet",
           tabBarIcon: ({ color, focused }) => (
-            <View
-              className="h-8 w-16 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: focused ? "#C8F560" : "transparent",
-              }}
-            >
-              <Wallet
-                size={24}
-                color={color}
-                strokeWidth={focused ? 2.4 : 1.8}
-              />
-            </View>
+            <TabIcon Icon={Wallet} color={color} focused={focused} />
           ),
         }}
       />
@@ -130,19 +122,9 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: "Account",
+          tabBarAccessibilityLabel: "Account",
           tabBarIcon: ({ color, focused }) => (
-            <View
-              className="h-8 w-16 items-center justify-center rounded-full"
-              style={{
-                backgroundColor: focused ? "#C8F560" : "transparent",
-              }}
-            >
-              <UserRound
-                size={24}
-                color={color}
-                strokeWidth={focused ? 2.4 : 1.8}
-              />
-            </View>
+            <TabIcon Icon={UserRound} color={color} focused={focused} />
           ),
         }}
       />

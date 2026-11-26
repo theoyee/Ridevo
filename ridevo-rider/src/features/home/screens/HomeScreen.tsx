@@ -52,6 +52,8 @@ import { HOME_CONFIG } from "../constants/home.constants";
 
 import { useHomeMapLayout } from "../hooks/useHomeMapLayout";
 
+import { useLocationRefresh } from "@/features/location/hooks/useLocationRefresh";
+
 export function HomeScreen() {
   // --------------------------------------------------
   // References
@@ -140,6 +142,8 @@ export function HomeScreen() {
   // --------------------------------------------------
 
   const { location, isTracking, error: trackingError } = useMapLocation();
+
+  useLocationRefresh(isMapReady);
 
   // --------------------------------------------------
   // Camera management
