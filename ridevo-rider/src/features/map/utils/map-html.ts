@@ -153,6 +153,177 @@ export function createMapHtml({
 
     ${INTERPOLATION_SCRIPT}
 
+    const ROUTE_SOURCE_ID = "ridevo-route-source";
+    const ROUTE_LAYER_ID = "ridevo-route-layer";
+    const ROUTE_OUTLINE_ID = "ridevo-route-outline";
+
+    function setRoute(options) {
+      if (!map || !isReady || !options) {
+        return;
+      }
+
+      const coordinates = options.coordinates;
+
+      if (
+        !Array.isArray(coordinates) ||
+        coordinates.length < 2 ||
+        !coordinates.every(isValidCoordinates)
+      ) {
+        return;
+      }
+
+      const data = {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: coordinates,
+        },
+      };
+
+      const source = map.getSource(ROUTE_SOURCE_ID);
+
+      if (source) {
+        source.setData(data);
+      } else {
+        map.addSource(ROUTE_SOURCE_ID, {
+          type: "geojson",
+          data: data,
+        });
+      }
+
+      const color = options.color || "#101820";
+
+      const width = Math.min(
+        12,
+        Math.max(2, Number(options.width) || 5)
+      );
+
+      if (!map.getLayer(ROUTE_OUTLINE_ID)) {
+        map.addLayer({
+          id: ROUTE_OUTLINE_ID,
+          type: "line",
+          source: ROUTE_SOURCE_ID,
+
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+
+          paint: {
+            "line-color": "#FFFFFF",
+            "line-width": width + 3,
+          },
+        });
+      }
+
+      if (!map.getLayer(ROUTE_LAYER_ID)) {
+        map.addLayer({
+          id: ROUTE_LAYER_ID,
+          type: "line",
+          source: ROUTE_SOURCE_ID,
+
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+
+          paint: {
+            "line-color": color,
+            "line-width": width,
+          },
+        });
+      } else {
+        map.setPaintProperty(
+          ROUTE_LAYER_ID,
+          "line-color",
+          color
+        );
+
+        map.setPaintProperty(
+          ROUTE_LAYER_ID,
+          "line-width",
+          width
+        );
+
+        map.setPaintProperty(
+          ROUTE_OUTLINE_ID,
+          "line-width",
+          width + 3
+        );
+      }
+    }
+
+    function clearRoute() {
+      if (!map || !isReady) {
+        return;
+      }
+
+      if (map.getLayer(ROUTE_LAYER_ID)) {
+        map.removeLayer(ROUTE_LAYER_ID);
+      }
+
+      if (map.getLayer(ROUTE_OUTLINE_ID)) {
+        map.removeLayer(ROUTE_OUTLINE_ID);
+      }
+
+      if (map.getSource(ROUTE_SOURCE_ID)) {
+        map.removeSource(ROUTE_SOURCE_ID);
+      }
+    }
+
+    function fitCoordinates(options) {
+      if (!map || !isReady || !options) {
+        return;
+      }
+
+      const coordinates = options.coordinates;
+
+      if (
+        !Array.isArray(coordinates) ||
+        coordinates.length < 2 ||
+        !coordinates.every(isValidCoordinates)
+      ) {
+        return;
+      }
+
+      const bounds = new mapboxgl.LngLatBounds();
+
+      coordinates.forEach(function (coordinate) {
+        bounds.extend(coordinate);
+      });
+
+      map.fitBounds(bounds, {
+        padding: options.padding || {
+          top: 60,
+          right: 40,
+          bottom: 60,
+          left: 40,
+        },
+
+        retainPadding: false,
+
+        duration: options.duration ?? 800,
+
+        maxZoom: options.maxZoom ?? 16,
+      });
+    }
+
+    function getCamera() {
+      if (!map || !isReady) {
+        return;
+      }
+
+      const center = map.getCenter();
+
+      emit("CAMERA_CHANGED", {
+        coordinates: [center.wrap().lng, center.lat],
+        zoomLevel: map.getZoom(),
+        heading: map.getBearing(),
+        pitch: map.getPitch(),
+      });
+    }
+
     // --------------------------------------------------
     // React Native communication
     // --------------------------------------------------
@@ -490,81 +661,81 @@ export function createMapHtml({
 
 
     function measureAnimationPerformance(timestamp) {
-  if (!ENABLE_PERFORMANCE_LOGGING) {
-    return;
-  }
+      if (!ENABLE_PERFORMANCE_LOGGING) {
+        return;
+      }
 
-  if (performanceWindowStart === null) {
-    performanceWindowStart = timestamp;
-    performanceFrameCount = 0;
-    return;
-  }
+      if (performanceWindowStart === null) {
+        performanceWindowStart = timestamp;
+        performanceFrameCount = 0;
+        return;
+      }
 
-  performanceFrameCount++;
+      performanceFrameCount++;
 
-  const elapsed =
-    timestamp - performanceWindowStart;
+      const elapsed =
+        timestamp - performanceWindowStart;
 
-  if (elapsed < 1000) {
-    return;
-  }
+      if (elapsed < 1000) {
+        return;
+      }
 
-  const fps = Math.round(
-    performanceFrameCount * 1000 / elapsed
-  );
-
-  emit("MAP_PERFORMANCE", {
-    fps,
-    vehicleCount: vehicleMarkers.size
-  });
-
-  performanceFrameCount = 0;
-  performanceWindowStart = timestamp;
-}
-
-function animateVehicles(timestamp) {
-  animationFrameId = null;
-
-  if (!map || !isReady || document.hidden) {
-    resetPerformanceMeasurement();
-    return;
-  }
-
-  measureAnimationPerformance(timestamp);
-
-  let hasActiveAnimations = false;
-
-  for (const state of vehicleMarkers.values()) {
-    if (!state.isAnimating) {
-      continue;
-    }
-
-    const stillAnimating =
-      advanceVehicleAnimation(
-        state,
-        timestamp
+      const fps = Math.round(
+        performanceFrameCount * 1000 / elapsed
       );
 
-    if (stillAnimating) {
-      hasActiveAnimations = true;
-    }
-  }
+      emit("MAP_PERFORMANCE", {
+        fps,
+        vehicleCount: vehicleMarkers.size
+      });
 
-  if (hasActiveAnimations) {
-    animationFrameId =
-      requestAnimationFrame(animateVehicles);
-  } else {
-    resetPerformanceMeasurement();
-  }
-}
+      performanceFrameCount = 0;
+      performanceWindowStart = timestamp;
+    }
+
+    function animateVehicles(timestamp) {
+      animationFrameId = null;
+
+      if (!map || !isReady || document.hidden) {
+        resetPerformanceMeasurement();
+        return;
+      }
+
+      measureAnimationPerformance(timestamp);
+
+      let hasActiveAnimations = false;
+
+      for (const state of vehicleMarkers.values()) {
+        if (!state.isAnimating) {
+          continue;
+        }
+
+        const stillAnimating =
+          advanceVehicleAnimation(
+            state,
+            timestamp
+          );
+
+        if (stillAnimating) {
+          hasActiveAnimations = true;
+        }
+      }
+
+      if (hasActiveAnimations) {
+        animationFrameId =
+          requestAnimationFrame(animateVehicles);
+      } else {
+        resetPerformanceMeasurement();
+      }
+    }
 
     // --------------------------------------------------
     // Start shared animation loop
     // --------------------------------------------------
-function resetPerformanceMeasurement() {
-  performanceFrameCount = 0;
-  performanceWindowStart = null;
-}
+    function resetPerformanceMeasurement() {
+      performanceFrameCount = 0;
+      performanceWindowStart = null;
+    }
 
     function startAnimationLoop() {
       if (!map || !isReady || document.hidden) {
@@ -584,6 +755,8 @@ function resetPerformanceMeasurement() {
     // --------------------------------------------------
 
     function stopAnimationLoop() {
+      resetPerformanceMeasurement();
+
       if (animationFrameId === null) {
         return;
       }
@@ -803,62 +976,61 @@ function resetPerformanceMeasurement() {
 
 
     function setCameraPadding(padding) {
-  if (!map || !isReady || !padding) {
-    return;
-  }
+      if (!map || !isReady || !padding) {
+        return;
+      }
 
-  const values = [
-    padding.top,
-    padding.right,
-    padding.bottom,
-    padding.left,
-  ];
+      const values = [
+        padding.top,
+        padding.right,
+        padding.bottom,
+        padding.left,
+      ];
 
-  if (
-    !values.every(
-      (value) =>
-        Number.isFinite(value) &&
-        value >= 0
-    )
-  ) {
-    return;
-  }
+      if (
+        !values.every(
+          (value) =>
+            Number.isFinite(value) &&
+            value >= 0
+        )
+      ) {
+        return;
+      }
 
-  const container = map.getContainer();
+      const container = map.getContainer();
 
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
 
-  if (
-    padding.left + padding.right >= width ||
-    padding.top + padding.bottom >= height
-  ) {
-    return;
-  }
+      if (
+        padding.left + padding.right >= width ||
+        padding.top + padding.bottom >= height
+      ) {
+        return;
+      }
 
-  const currentPadding = map.getPadding();
+      const currentPadding = map.getPadding();
 
-  const isUnchanged =
-    Math.abs(
-      currentPadding.top - padding.top
-    ) < 1 &&
-    Math.abs(
-      currentPadding.right - padding.right
-    ) < 1 &&
-    Math.abs(
-      currentPadding.bottom - padding.bottom
-    ) < 1 &&
-    Math.abs(
-      currentPadding.left - padding.left
-    ) < 1;
+      const isUnchanged =
+        Math.abs(
+          currentPadding.top - padding.top
+        ) < 1 &&
+        Math.abs(
+          currentPadding.right - padding.right
+        ) < 1 &&
+        Math.abs(
+          currentPadding.bottom - padding.bottom
+        ) < 1 &&
+        Math.abs(
+          currentPadding.left - padding.left
+        ) < 1;
 
-  if (isUnchanged) {
-    return;
-  }
+      if (isUnchanged) {
+        return;
+      }
 
-  map.setPadding(padding);
-}
-
+      map.setPadding(padding);
+    }
 
     window.ridevoMap = {
       dispatch(command) {
@@ -906,6 +1078,31 @@ function resetPerformanceMeasurement() {
             break;
           }
 
+          case "SET_CAMERA_PADDING": {
+            setCameraPadding(command.payload);
+            break;
+          }
+
+          case "SET_ROUTE": {
+            setRoute(command.payload);
+            break;
+          }
+
+          case "CLEAR_ROUTE": {
+            clearRoute();
+            break;
+          }
+
+          case "FIT_COORDINATES": {
+            fitCoordinates(command.payload);
+            break;
+          }
+
+          case "GET_CAMERA": {
+            getCamera();
+            break;
+          }
+
           default: {
             break;
           }
@@ -918,6 +1115,7 @@ function resetPerformanceMeasurement() {
     // --------------------------------------------------
 
     function disposeMap() {
+      clearRoute();
       isReady = false;
 
       stopAnimationLoop();
@@ -1034,19 +1232,7 @@ function resetPerformanceMeasurement() {
       // Camera movement completed
       // ------------------------------------------------
 
-      map.on("moveend", function () {
-        const center = map.getCenter();
-
-        emit("CAMERA_CHANGED", {
-          coordinates: [
-            center.lng,
-            center.lat
-          ],
-          zoomLevel: map.getZoom(),
-          heading: map.getBearing(),
-          pitch: map.getPitch()
-        });
-      });
+      map.on("moveend", getCamera);
 
     } catch (error) {
       isReady = false;

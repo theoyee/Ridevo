@@ -54,7 +54,10 @@ import { useHomeMapLayout } from "../hooks/useHomeMapLayout";
 
 import { useLocationRefresh } from "@/features/location/hooks/useLocationRefresh";
 
+import { useActiveRideRecovery } from "@/features/rides/hooks/useActiveRideRecovery";
+
 export function HomeScreen() {
+  useActiveRideRecovery();
   // --------------------------------------------------
   // References
   // --------------------------------------------------

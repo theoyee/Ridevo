@@ -5,7 +5,9 @@ import { WebView } from "react-native-webview";
 import type {
   MapCameraOptions,
   MapCommand,
+  MapFitOptions,
   MapPadding,
+  MapRouteOptions,
   MapVehicle,
 } from "../types/map-bridge.types";
 
@@ -85,6 +87,38 @@ export function useMapBridge() {
     });
   }, [dispatch]);
 
+  const setRoute = useCallback(
+    (options: MapRouteOptions) => {
+      dispatch({
+        type: "SET_ROUTE",
+        payload: options,
+      });
+    },
+    [dispatch],
+  );
+
+  const clearRoute = useCallback(() => {
+    dispatch({
+      type: "CLEAR_ROUTE",
+    });
+  }, [dispatch]);
+
+  const fitCoordinates = useCallback(
+    (options: MapFitOptions) => {
+      dispatch({
+        type: "FIT_COORDINATES",
+        payload: options,
+      });
+    },
+    [dispatch],
+  );
+
+  const getCamera = useCallback(() => {
+    dispatch({
+      type: "GET_CAMERA",
+    });
+  }, [dispatch]);
+
   return {
     webViewRef,
 
@@ -99,5 +133,9 @@ export function useMapBridge() {
     setNearbyDrivers,
 
     clearNearbyDrivers,
+    setRoute,
+    clearRoute,
+    fitCoordinates,
+    getCamera,
   };
 }

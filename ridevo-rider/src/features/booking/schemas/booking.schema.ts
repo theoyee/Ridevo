@@ -21,6 +21,8 @@ export const destinationSearchModeSchema = z.enum([
   "save-work",
 ]);
 
+export const vehicleCategorySchema = z.enum(["economy", "comfort", "premium"]);
+
 export const bookingPickupSchema = z.object({
   coordinates: placeCoordinatesSchema,
 
@@ -39,12 +41,32 @@ export const bookingDestinationSchema = placeSchema.extend({
   source: destinationSourceSchema,
 });
 
+export const selectedVehicleSchema = z.object({
+  category: vehicleCategorySchema,
+
+  estimatedFareMinor: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(Number.MAX_SAFE_INTEGER),
+
+  currency: z.literal("NGN"),
+
+  selectedAt: z.number().int().nonnegative(),
+});
+
 export const bookingDraftSchema = z.object({
   userId: z.string().trim().min(1),
 
   pickup: bookingPickupSchema.nullable(),
 
   destination: bookingDestinationSchema.nullable(),
+
+  pickupConfirmed: z.boolean(),
+
+  destinationConfirmed: z.boolean(),
+
+  selectedVehicle: selectedVehicleSchema.nullable(),
 
   createdAt: z.number().int().nonnegative(),
 

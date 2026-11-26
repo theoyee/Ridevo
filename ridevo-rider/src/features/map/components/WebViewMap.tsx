@@ -55,6 +55,10 @@ const {
   clearUserLocation,
   setNearbyDrivers,
   clearNearbyDrivers,
+  setRoute,
+  clearRoute,
+  fitCoordinates,
+  getCamera,
 } = useMapBridge();
 
   // Expose map operations to the parent component.
@@ -67,6 +71,10 @@ useImperativeHandle(
     clearUserLocation,
     setNearbyDrivers,
     clearNearbyDrivers,
+    setRoute,
+    clearRoute,
+    fitCoordinates,
+    getCamera,
   }),
   [
     setCamera,
@@ -75,6 +83,10 @@ useImperativeHandle(
     clearUserLocation,
     setNearbyDrivers,
     clearNearbyDrivers,
+    setRoute,
+    clearRoute,
+    fitCoordinates,
+    getCamera,
   ],
 );
 

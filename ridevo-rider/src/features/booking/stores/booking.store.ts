@@ -3,6 +3,7 @@ import { create } from "zustand";
 import {
   bookingDestinationSchema,
   bookingPickupSchema,
+  selectedVehicleSchema,
   startBookingInputSchema,
 } from "../schemas/booking.schema";
 
@@ -10,6 +11,7 @@ import type {
   BookingDestination,
   BookingDraft,
   BookingPickup,
+  SelectedVehicle,
   StartBookingInput,
 } from "../types/booking.types";
 
@@ -21,6 +23,12 @@ interface BookingState {
   setPickup: (userId: string, pickup: BookingPickup) => void;
 
   setDestination: (userId: string, destination: BookingDestination) => void;
+
+  confirmPickup: (userId: string) => void;
+
+  confirmDestination: (userId: string) => void;
+
+  selectVehicle: (userId: string, vehicle: SelectedVehicle) => void;
 
   clearPickup: (userId: string) => void;
 
@@ -34,11 +42,11 @@ function requireBookingDraft(
   userId: string,
 ): BookingDraft {
   if (!draft) {
-    throw new Error("No active booking draft.");
+    throw new Error("No active booking.");
   }
 
   if (draft.userId !== userId) {
-    throw new Error("Booking draft belongs to another rider.");
+    throw new Error("Invalid booking owner.");
   }
 
   return draft;
@@ -60,6 +68,12 @@ export const useBookingStore = create<BookingState>((set) => ({
 
         destination: validated.destination ?? null,
 
+        pickupConfirmed: false,
+
+        destinationConfirmed: false,
+
+        selectedVehicle: null,
+
         createdAt: now,
 
         updatedAt: now,
@@ -79,6 +93,12 @@ export const useBookingStore = create<BookingState>((set) => ({
 
           pickup: validated,
 
+          pickupConfirmed: false,
+
+          destinationConfirmed: false,
+
+          selectedVehicle: null,
+
           updatedAt: Date.now(),
         },
       };
@@ -97,6 +117,72 @@ export const useBookingStore = create<BookingState>((set) => ({
 
           destination: validated,
 
+          destinationConfirmed: false,
+
+          selectedVehicle: null,
+
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  },
+
+  confirmPickup: (userId) => {
+    set((state) => {
+      const draft = requireBookingDraft(state.draft, userId);
+
+      if (!draft.pickup) {
+        throw new Error("Pickup is required.");
+      }
+
+      return {
+        draft: {
+          ...draft,
+
+          pickupConfirmed: true,
+
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  },
+
+  confirmDestination: (userId) => {
+    set((state) => {
+      const draft = requireBookingDraft(state.draft, userId);
+
+      if (!draft.pickupConfirmed || !draft.destination) {
+        throw new Error("Confirm your pickup and destination first.");
+      }
+
+      return {
+        draft: {
+          ...draft,
+
+          destinationConfirmed: true,
+
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  },
+
+  selectVehicle: (userId, vehicle) => {
+    const validated = selectedVehicleSchema.parse(vehicle);
+
+    set((state) => {
+      const draft = requireBookingDraft(state.draft, userId);
+
+      if (!draft.pickupConfirmed || !draft.destinationConfirmed) {
+        throw new Error("Confirm your journey first.");
+      }
+
+      return {
+        draft: {
+          ...draft,
+
+          selectedVehicle: validated,
+
           updatedAt: Date.now(),
         },
       };
@@ -112,6 +198,12 @@ export const useBookingStore = create<BookingState>((set) => ({
           ...draft,
 
           pickup: null,
+
+          pickupConfirmed: false,
+
+          destinationConfirmed: false,
+
+          selectedVehicle: null,
 
           updatedAt: Date.now(),
         },
@@ -129,6 +221,10 @@ export const useBookingStore = create<BookingState>((set) => ({
 
           destination: null,
 
+          destinationConfirmed: false,
+
+          selectedVehicle: null,
+
           updatedAt: Date.now(),
         },
       };
@@ -136,8 +232,6 @@ export const useBookingStore = create<BookingState>((set) => ({
   },
 
   resetBooking: () => {
-    set({
-      draft: null,
-    });
+    set({ draft: null });
   },
 }));

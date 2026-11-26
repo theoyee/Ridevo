@@ -26,6 +26,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 
+import { useActiveRideStore } from "@/features/rides/stores/active-ride.store";
+
 void SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -50,6 +52,25 @@ export default function RootLayout() {
   });
 
   useNotificationBootstrap();
+
+  useEffect(() => {
+    function synchronizeRideOwner() {
+      const auth = useAuthStore.getState();
+
+      const userId =
+        auth.status === "authenticated" ? auth.session?.user.id : undefined;
+
+      const activeRide = useActiveRideStore.getState().ride;
+
+      if (activeRide && activeRide.userId !== userId) {
+        useActiveRideStore.getState().clearRide();
+      }
+    }
+
+    synchronizeRideOwner();
+
+    return useAuthStore.subscribe(synchronizeRideOwner);
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {

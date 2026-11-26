@@ -43,6 +43,12 @@ export default function BookingLayout() {
       <Stack.Screen name="destination-search" />
 
       <Stack.Screen name="confirm-pickup" />
+
+      <Stack.Screen name="confirm-destination" />
+
+      <Stack.Screen name="vehicle-selection" />
+
+      <Stack.Screen name="payment-selection" />
     </Stack>
   );
 }

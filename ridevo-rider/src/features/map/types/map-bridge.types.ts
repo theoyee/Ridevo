@@ -54,6 +54,20 @@ export type MapCommand =
     }
   | {
       type: "CLEAR_NEARBY_DRIVERS";
+    }
+  | {
+      type: "SET_ROUTE";
+      payload: MapRouteOptions;
+    }
+  | {
+      type: "CLEAR_ROUTE";
+    }
+  | {
+      type: "FIT_COORDINATES";
+      payload: MapFitOptions;
+    }
+  | {
+      type: "GET_CAMERA";
     };
 
 export type MapEvent =
@@ -101,4 +115,25 @@ export interface MapController {
   setNearbyDrivers: (drivers: MapVehicle[]) => void;
 
   clearNearbyDrivers: () => void;
+
+  setRoute: (options: MapRouteOptions) => void;
+
+  clearRoute: () => void;
+
+  fitCoordinates: (options: MapFitOptions) => void;
+
+  getCamera: () => void;
+}
+
+export interface MapRouteOptions {
+  coordinates: MapCoordinates[];
+  color?: string;
+  width?: number;
+}
+
+export interface MapFitOptions {
+  coordinates: MapCoordinates[];
+  padding?: MapPadding;
+  duration?: number;
+  maxZoom?: number;
 }

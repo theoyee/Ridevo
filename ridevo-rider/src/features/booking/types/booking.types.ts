@@ -28,13 +28,15 @@ export interface BookingDestination extends Place {
 
 export interface BookingDraft {
   userId: string;
-
   pickup: BookingPickup | null;
-
   destination: BookingDestination | null;
 
-  createdAt: number;
+  pickupConfirmed: boolean;
+  destinationConfirmed: boolean;
 
+  selectedVehicle: SelectedVehicle | null;
+
+  createdAt: number;
   updatedAt: number;
 }
 
@@ -48,3 +50,27 @@ export interface StartBookingInput {
 
 export type DestinationSearchMode =
   "destination" | "pickup" | "save-home" | "save-work";
+
+export interface RideRoute {
+  coordinates: [number, number][];
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+export type VehicleCategory = "economy" | "comfort" | "premium";
+
+export interface VehicleOption {
+  category: VehicleCategory;
+  name: string;
+  description: string;
+  capacity: number;
+  estimatedFareMinor: number;
+  currency: "NGN";
+}
+
+export interface SelectedVehicle {
+  category: VehicleCategory;
+  estimatedFareMinor: number;
+  currency: "NGN";
+  selectedAt: number;
+}

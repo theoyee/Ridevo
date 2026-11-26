@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ComponentRef } from "react";
 
 import {
   ActivityIndicator,
@@ -86,7 +86,7 @@ export function DestinationSearchScreen({
 }: DestinationSearchScreenProps) {
   const router = useRouter();
 
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const selectionLock = useRef(false);
 
