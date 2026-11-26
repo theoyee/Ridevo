@@ -1,16 +1,29 @@
 import type { MapCoordinates } from "./map.types";
 
+export interface MapPadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 export interface MapCameraOptions {
   centerCoordinate: MapCoordinates;
+
   zoomLevel?: number;
+
   heading?: number;
+
   pitch?: number;
+
   duration?: number;
 }
 
 export interface MapVehicle {
   id: string;
+
   coordinates: MapCoordinates;
+
   heading: number;
 }
 
@@ -18,6 +31,10 @@ export type MapCommand =
   | {
       type: "SET_CAMERA";
       payload: MapCameraOptions;
+    }
+  | {
+      type: "SET_CAMERA_PADDING";
+      payload: MapPadding;
     }
   | {
       type: "SET_USER_LOCATION";
@@ -73,13 +90,15 @@ export type MapEvent =
     };
 
 export interface MapController {
-  setCamera(options: MapCameraOptions): void;
+  setCamera: (options: MapCameraOptions) => void;
 
-  setUserLocation(coordinates: MapCoordinates, accuracy?: number): void;
+  setCameraPadding: (padding: MapPadding) => void;
 
-  clearUserLocation(): void;
+  setUserLocation: (coordinates: MapCoordinates, accuracy?: number) => void;
 
-  setNearbyDrivers(drivers: MapVehicle[]): void;
+  clearUserLocation: () => void;
 
-  clearNearbyDrivers(): void;
+  setNearbyDrivers: (drivers: MapVehicle[]) => void;
+
+  clearNearbyDrivers: () => void;
 }

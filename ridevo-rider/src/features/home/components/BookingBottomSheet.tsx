@@ -1,4 +1,4 @@
-import { memo, useMemo, type Ref } from "react";
+import { memo, type Ref } from "react";
 
 import { Pressable, StyleSheet, View } from "react-native";
 
@@ -54,6 +54,12 @@ interface BookingBottomSheetProps {
   onClearRecentDestinations: () => void;
 
   onChange?: (index: number) => void;
+
+  snapPoints: number[];
+
+  initialIndex: number;
+
+  // containerHeight: number;
 }
 
 export const BookingBottomSheet = memo(function BookingBottomSheet({
@@ -73,13 +79,16 @@ export const BookingBottomSheet = memo(function BookingBottomSheet({
   onRecentDestinationLongPress,
   onClearRecentDestinations,
   onChange,
+
+  snapPoints,
+  initialIndex,
 }: BookingBottomSheetProps) {
-  const snapPoints = useMemo(() => [...HOME_CONFIG.sheet.snapPoints], []);
+  // const snapPoints = useMemo(() => [...HOME_CONFIG.sheet.snapPoints], []);
 
   return (
     <BottomSheet
       ref={ref}
-      index={HOME_CONFIG.sheet.initialIndex}
+      index={initialIndex}
       snapPoints={snapPoints}
       animatedPosition={animatedPosition}
       enableDynamicSizing={false}

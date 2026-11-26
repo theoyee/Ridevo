@@ -565,7 +565,7 @@ function resetPerformanceMeasurement() {
   performanceFrameCount = 0;
   performanceWindowStart = null;
 }
-  
+
     function startAnimationLoop() {
       if (!map || !isReady || document.hidden) {
         return;
@@ -800,6 +800,65 @@ function resetPerformanceMeasurement() {
     // --------------------------------------------------
     // React Native -> WebView communication
     // --------------------------------------------------
+
+
+    function setCameraPadding(padding) {
+  if (!map || !isReady || !padding) {
+    return;
+  }
+
+  const values = [
+    padding.top,
+    padding.right,
+    padding.bottom,
+    padding.left,
+  ];
+
+  if (
+    !values.every(
+      (value) =>
+        Number.isFinite(value) &&
+        value >= 0
+    )
+  ) {
+    return;
+  }
+
+  const container = map.getContainer();
+
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+
+  if (
+    padding.left + padding.right >= width ||
+    padding.top + padding.bottom >= height
+  ) {
+    return;
+  }
+
+  const currentPadding = map.getPadding();
+
+  const isUnchanged =
+    Math.abs(
+      currentPadding.top - padding.top
+    ) < 1 &&
+    Math.abs(
+      currentPadding.right - padding.right
+    ) < 1 &&
+    Math.abs(
+      currentPadding.bottom - padding.bottom
+    ) < 1 &&
+    Math.abs(
+      currentPadding.left - padding.left
+    ) < 1;
+
+  if (isUnchanged) {
+    return;
+  }
+
+  map.setPadding(padding);
+}
+
 
     window.ridevoMap = {
       dispatch(command) {

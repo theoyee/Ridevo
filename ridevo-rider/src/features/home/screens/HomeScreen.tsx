@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 
 import type BottomSheet from "@gorhom/bottom-sheet";
 
@@ -19,6 +10,8 @@ import { Screen } from "@/components/layout/Screen";
 import { Typography } from "@/components/ui/Typography";
 
 import { useAuthStore } from "@/features/auth/stores/auth.store";
+
+import { useBookingNavigation } from "@/features/booking/hooks/useBookingNavigation";
 
 import { useNearbyDrivers } from "@/features/drivers/hooks/useNearbyDrivers";
 
@@ -32,35 +25,32 @@ import {
   toMapboxCoordinates,
 } from "@/features/location/utils/location.utils";
 
-import { RidevoMap } from "@/features/map/components/RidevoMap";
-
-import { RecenterButton } from "@/features/map/components/RecenterButton";
-
 import { MapDebugOverlay } from "@/features/map/components/MapDebugOverlay";
+import { RecenterButton } from "@/features/map/components/RecenterButton";
+import { RidevoMap } from "@/features/map/components/RidevoMap";
 
 import { MAP_STYLES } from "@/features/map/constants/map.constants";
 
 import { useMapCamera } from "@/features/map/hooks/useMapCamera";
-
 import { useMapLocation } from "@/features/map/hooks/useMapLocation";
-
 import { useNearbyDriverMarkers } from "@/features/map/hooks/useNearbyDriverMarkers";
 
 import type { MapController } from "@/features/map/types/map-bridge.types";
 
+import { useRecentDestinations } from "@/features/places/hooks/useRecentDestinations";
 import { useSavedPlaces } from "@/features/places/hooks/useSavedPlaces";
 
-import type { SavedPlaceType } from "@/features/places/types/place.types";
-
-import { HomeHeader } from "../components/HomeHeader";
+import type {
+  RecentDestination,
+  SavedPlaceType,
+} from "@/features/places/types/place.types";
 
 import { BookingBottomSheet } from "../components/BookingBottomSheet";
+import { HomeHeader } from "../components/HomeHeader";
 
 import { HOME_CONFIG } from "../constants/home.constants";
 
-import { useRecentDestinations } from "@/features/places/hooks/useRecentDestinations";
-
-import type { RecentDestination } from "@/features/places/types/place.types";
+import { useHomeMapLayout } from "../hooks/useHomeMapLayout";
 
 export function HomeScreen() {
   // --------------------------------------------------
@@ -74,12 +64,8 @@ export function HomeScreen() {
   const recenterLock = useRef(false);
 
   // --------------------------------------------------
-  // Layout and component state
+  // Component state
   // --------------------------------------------------
-
-  const { height: windowHeight } = useWindowDimensions();
-
-  const [containerHeight, setContainerHeight] = useState(0);
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -92,6 +78,31 @@ export function HomeScreen() {
   // --------------------------------------------------
 
   const firstName = useAuthStore((state) => state.session?.user.firstName);
+
+  // --------------------------------------------------
+  // Responsive map and bottom sheet layout
+  // --------------------------------------------------
+
+  const {
+    isLayoutReady,
+    snapPoints,
+    initialSheetIndex,
+    animatedSheetPosition,
+    recenterAnimatedStyle,
+    canShowRecenter,
+    handleContainerLayout,
+    handleSheetChange,
+  } = useHomeMapLayout({
+    mapRef,
+    isMapReady,
+  });
+
+  // --------------------------------------------------
+  // Booking navigation
+  // --------------------------------------------------
+
+  const { openDestinationSearch, selectDestination, openSavedPlaceSearch } =
+    useBookingNavigation();
 
   // --------------------------------------------------
   // Location store
@@ -112,94 +123,17 @@ export function HomeScreen() {
     removePlace,
   } = useSavedPlaces();
 
+  // --------------------------------------------------
+  // Recent destinations
+  // --------------------------------------------------
+
   const {
     previewDestinations,
     error: recentDestinationsError,
     retry: retryRecentDestinations,
     removeDestination,
     clearDestinations,
-    isReady: isHistoryReady,
-    recordDestination,
   } = useRecentDestinations();
-
-  const handleRecentDestinationPress = useCallback(
-    (destination: RecentDestination) => {
-      Alert.alert(destination.name, destination.address);
-    },
-    [],
-  );
-
-  const handleRecentDestinationLongPress = useCallback(
-    (destination: RecentDestination) => {
-      Alert.alert("Remove destination?", destination.name, [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Remove",
-          style: "destructive",
-
-          onPress: () => {
-            try {
-              removeDestination(destination);
-            } catch {
-              Alert.alert("Unable to remove destination", "Please try again.");
-            }
-          },
-        },
-      ]);
-    },
-    [removeDestination],
-  );
-
-  const handleClearRecentDestinations = useCallback(() => {
-    Alert.alert(
-      "Clear destination history?",
-      "This will remove all your recent destinations from this device.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Clear history",
-          style: "destructive",
-
-          onPress: () => {
-            try {
-              clearDestinations();
-            } catch {
-              Alert.alert("Unable to clear history", "Please try again.");
-            }
-          },
-        },
-      ],
-    );
-  }, [clearDestinations]);
-
-  // --------------------------------------------------
-  // Bottom sheet animation
-  // --------------------------------------------------
-
-  const animatedSheetPosition = useSharedValue(windowHeight);
-
-  const recenterSpacing = HOME_CONFIG.map.recenterSpacing;
-
-  const recenterAnimatedStyle = useAnimatedStyle(() => {
-    const top = Math.max(
-      96,
-      animatedSheetPosition.value - 48 - recenterSpacing,
-    );
-
-    return {
-      transform: [
-        {
-          translateY: top,
-        },
-      ],
-    };
-  });
 
   // --------------------------------------------------
   // GPS tracking
@@ -233,7 +167,7 @@ export function HomeScreen() {
   });
 
   // --------------------------------------------------
-  // Synchronize driver markers
+  // Synchronize nearby driver markers
   // --------------------------------------------------
 
   useNearbyDriverMarkers({
@@ -269,7 +203,7 @@ export function HomeScreen() {
   }, [location, isMapReady]);
 
   // --------------------------------------------------
-  // Development driver diagnostics
+  // Development diagnostics
   // --------------------------------------------------
 
   useEffect(() => {
@@ -279,7 +213,7 @@ export function HomeScreen() {
   }, [driverError]);
 
   // --------------------------------------------------
-  // Recenter camera
+  // Recenter map camera
   // --------------------------------------------------
 
   const handleRecenter = useCallback(async () => {
@@ -289,7 +223,7 @@ export function HomeScreen() {
 
     setLocationError(null);
 
-    // Use the existing location if it is fresh.
+    // Reuse an existing fresh GPS location.
     if (recenter()) {
       return;
     }
@@ -305,7 +239,13 @@ export function HomeScreen() {
         throw new Error("Unable to determine your current location.");
       }
 
-      // Keep the shared location store synchronized.
+      const permission = await locationService.getPermission();
+
+      if (!permission.granted) {
+        throw new Error("Location permission is required.");
+      }
+
+      // Synchronize the shared location store.
       setCurrentLocation(currentLocation);
 
       const coordinates = toMapboxCoordinates(currentLocation);
@@ -347,15 +287,19 @@ export function HomeScreen() {
   }, []);
 
   // --------------------------------------------------
-  // Destination search
+  // Start a new booking
   // --------------------------------------------------
 
   const handleDestinationPress = useCallback(() => {
-    Alert.alert(
-      "Destination search",
-      "Destination search will be implemented in R09.",
-    );
-  }, []);
+    try {
+      openDestinationSearch();
+    } catch (cause) {
+      Alert.alert(
+        "Unable to start booking",
+        cause instanceof Error ? cause.message : "Please try again.",
+      );
+    }
+  }, [openDestinationSearch]);
 
   // --------------------------------------------------
   // Saved place selection
@@ -365,20 +309,24 @@ export function HomeScreen() {
     (type: SavedPlaceType) => {
       const place = type === "home" ? home : work;
 
-      const title = type === "home" ? "Home" : "Work";
+      try {
+        // No saved address: open address configuration.
+        if (!place) {
+          openSavedPlaceSearch(type);
 
-      if (!place) {
+          return;
+        }
+
+        // Existing address: start booking directly.
+        selectDestination(place, "saved_place");
+      } catch (cause) {
         Alert.alert(
-          `Add ${title}`,
-          "Address search will be available in the destination search milestone.",
+          "Unable to select saved place",
+          cause instanceof Error ? cause.message : "Please try again.",
         );
-
-        return;
       }
-
-      Alert.alert(title, place.address);
     },
-    [home, work],
+    [home, work, openSavedPlaceSearch, selectDestination],
   );
 
   // --------------------------------------------------
@@ -416,7 +364,90 @@ export function HomeScreen() {
   );
 
   // --------------------------------------------------
-  // Location settings
+  // Recent destination selection
+  // --------------------------------------------------
+
+  const handleRecentDestinationPress = useCallback(
+    (destination: RecentDestination) => {
+      try {
+        selectDestination(destination, "recent_destination");
+      } catch (cause) {
+        Alert.alert(
+          "Unable to select destination",
+          cause instanceof Error ? cause.message : "Please try again.",
+        );
+      }
+    },
+    [selectDestination],
+  );
+
+  // --------------------------------------------------
+  // Remove individual recent destination
+  // --------------------------------------------------
+
+  const handleRecentDestinationLongPress = useCallback(
+    (destination: RecentDestination) => {
+      Alert.alert("Remove destination?", destination.name, [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+
+          onPress: () => {
+            try {
+              removeDestination(destination);
+            } catch {
+              Alert.alert("Unable to remove destination", "Please try again.");
+            }
+          },
+        },
+      ]);
+    },
+    [removeDestination],
+  );
+
+  // --------------------------------------------------
+  // Clear recent destination history
+  // --------------------------------------------------
+
+  const handleClearRecentDestinations = useCallback(() => {
+    Alert.alert(
+      "Clear destination history?",
+      "This will remove all your recent destinations from this device.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Clear history",
+          style: "destructive",
+
+          onPress: () => {
+            try {
+              clearDestinations();
+            } catch {
+              Alert.alert("Unable to clear history", "Please try again.");
+            }
+          },
+        },
+      ],
+    );
+  }, [clearDestinations]);
+
+  // --------------------------------------------------
+  // Retry destination history hydration
+  // --------------------------------------------------
+
+  const handleRetryRecentDestinations = useCallback(() => {
+    void retryRecentDestinations();
+  }, [retryRecentDestinations]);
+
+  // --------------------------------------------------
+  // Open device settings
   // --------------------------------------------------
 
   const handleOpenSettings = useCallback(async () => {
@@ -442,13 +473,9 @@ export function HomeScreen() {
 
   return (
     <Screen edges={["top"]}>
-      <View
-        className="relative flex-1"
-        onLayout={(event) => {
-          setContainerHeight(event.nativeEvent.layout.height);
-        }}
-      >
-        {/* Full-screen map */}
+      <View className="relative flex-1" onLayout={handleContainerLayout}>
+        {/* Full-screen Mapbox renderer */}
+
         <View style={StyleSheet.absoluteFill}>
           <RidevoMap
             ref={mapRef}
@@ -457,10 +484,12 @@ export function HomeScreen() {
           />
         </View>
 
-        {/* Floating header */}
+        {/* Floating home header */}
+
         <HomeHeader onNotificationsPress={handleNotificationsPress} />
 
-        {/* Location error */}
+        {/* Location error and recovery */}
+
         {displayError && (
           <View
             className="absolute left-4 right-4 top-28 rounded-2xl border border-border bg-white p-4"
@@ -481,7 +510,8 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* Development diagnostics */}
+        {/* Development-only map diagnostics */}
+
         {__DEV__ && !displayError && (
           <MapDebugOverlay
             isMapReady={isMapReady}
@@ -493,74 +523,47 @@ export function HomeScreen() {
           />
         )}
 
-        {__DEV__ && isHistoryReady && (
-          <Pressable
-            onPress={() => {
-              recordDestination({
-                id: "test-ikeja-city-mall",
-                name: "Ikeja City Mall",
-                address: "Obafemi Awolowo Way, Ikeja",
-                coordinates: {
-                  latitude: 6.614,
-                  longitude: 3.358,
-                },
-                provider: "manual",
-              });
+        {/* Animated recenter control */}
 
-              recordDestination({
-                id: "test-landmark-centre",
-                name: "Landmark Centre",
-                address: "Victoria Island, Lagos",
-                coordinates: {
-                  latitude: 6.423,
-                  longitude: 3.444,
-                },
-                provider: "manual",
-              });
-            }}
-            className="absolute right-4 top-28 rounded-full bg-primary px-4 py-3"
-            style={{ zIndex: 20 }}
-          >
-            <Typography variant="caption" className="text-white">
-              Seed history
-            </Typography>
-          </Pressable>
-        )}
-
-        {/* Animated recenter button */}
-        {containerHeight > 0 && (
+        {isLayoutReady && (
           <Animated.View
-            pointerEvents="box-none"
+            pointerEvents={canShowRecenter ? "box-none" : "none"}
+            accessibilityElementsHidden={!canShowRecenter}
+            importantForAccessibility={
+              canShowRecenter ? "auto" : "no-hide-descendants"
+            }
             style={[styles.recenterContainer, recenterAnimatedStyle]}
           >
             <RecenterButton
               onPress={handleRecenter}
               loading={isLocating}
-              disabled={!isMapReady}
+              disabled={!isMapReady || !canShowRecenter}
             />
           </Animated.View>
         )}
 
-        {/* Persistent booking bottom sheet */}
-        {containerHeight > 0 && (
+        {/* Responsive booking bottom sheet */}
+
+        {isLayoutReady && (
           <BookingBottomSheet
             ref={bottomSheetRef}
             firstName={firstName}
+            snapPoints={snapPoints}
+            initialIndex={initialSheetIndex}
             animatedPosition={animatedSheetPosition}
             home={home}
             work={work}
             areSavedPlacesReady={areSavedPlacesReady}
             recentDestinations={previewDestinations}
             recentDestinationsError={recentDestinationsError}
-            onRetryRecentDestinations={() => {
-              void retryRecentDestinations();
-            }}
+            onRetryRecentDestinations={handleRetryRecentDestinations}
             onDestinationPress={handleDestinationPress}
             onSavedPlacePress={handleSavedPlacePress}
             onSavedPlaceLongPress={handleSavedPlaceLongPress}
             onRecentDestinationPress={handleRecentDestinationPress}
             onRecentDestinationLongPress={handleRecentDestinationLongPress}
             onClearRecentDestinations={handleClearRecentDestinations}
+            onChange={handleSheetChange}
           />
         )}
       </View>

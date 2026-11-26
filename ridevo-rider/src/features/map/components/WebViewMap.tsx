@@ -47,33 +47,36 @@ export function WebViewMap({
 
   const [attempt, setAttempt] = useState(0);
 
-  const {
-    webViewRef,
+const {
+  webViewRef,
+  setCamera,
+  setCameraPadding,
+  setUserLocation,
+  clearUserLocation,
+  setNearbyDrivers,
+  clearNearbyDrivers,
+} = useMapBridge();
+
+  // Expose map operations to the parent component.
+useImperativeHandle(
+  ref,
+  () => ({
     setCamera,
+    setCameraPadding,
     setUserLocation,
     clearUserLocation,
     setNearbyDrivers,
     clearNearbyDrivers,
-  } = useMapBridge();
-
-  // Expose map operations to the parent component.
-  useImperativeHandle(
-    ref,
-    () => ({
-      setCamera,
-      setUserLocation,
-      clearUserLocation,
-      setNearbyDrivers,
-      clearNearbyDrivers,
-    }),
-    [
-      setCamera,
-      setUserLocation,
-      clearUserLocation,
-      setNearbyDrivers,
-      clearNearbyDrivers,
-    ],
-  );
+  }),
+  [
+    setCamera,
+    setCameraPadding,
+    setUserLocation,
+    clearUserLocation,
+    setNearbyDrivers,
+    clearNearbyDrivers,
+  ],
+);
 
   const configuration = useMemo(() => {
     try {
