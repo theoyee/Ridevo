@@ -1,15 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Bell } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
+
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
+
+import type BottomSheet from "@gorhom/bottom-sheet";
 
 import { Screen } from "@/components/layout/Screen";
-import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Typography } from "@/components/ui/Typography";
 
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 
+import { useNearbyDrivers } from "@/features/drivers/hooks/useNearbyDrivers";
+
 import { locationService } from "@/features/location/services/location.service";
+
+import { useLocationStore } from "@/features/location/stores/location.store";
 
 import {
   isLocationFresh,
@@ -17,27 +32,54 @@ import {
   toMapboxCoordinates,
 } from "@/features/location/utils/location.utils";
 
-import { RecenterButton } from "@/features/map/components/RecenterButton";
 import { RidevoMap } from "@/features/map/components/RidevoMap";
 
-import { useMapCamera } from "@/features/map/hooks/useMapCamera";
-import { useMapLocation } from "@/features/map/hooks/useMapLocation";
-
-import { MAP_STYLES } from "@/features/map/constants/map.constants";
-import type { MapController } from "@/features/map/types/map-bridge.types";
-
-import { driverService } from "@/features/drivers/services/driver.service";
-
-import type { DriverCoordinates } from "@/features/drivers/types/driver.types";
-
-import { useNearbyDrivers } from "@/features/drivers/hooks/useNearbyDrivers";
-
-import { useNearbyDriverMarkers } from "@/features/map/hooks/useNearbyDriverMarkers";
+import { RecenterButton } from "@/features/map/components/RecenterButton";
 
 import { MapDebugOverlay } from "@/features/map/components/MapDebugOverlay";
 
+import { MAP_STYLES } from "@/features/map/constants/map.constants";
+
+import { useMapCamera } from "@/features/map/hooks/useMapCamera";
+
+import { useMapLocation } from "@/features/map/hooks/useMapLocation";
+
+import { useNearbyDriverMarkers } from "@/features/map/hooks/useNearbyDriverMarkers";
+
+import type { MapController } from "@/features/map/types/map-bridge.types";
+
+import { useSavedPlaces } from "@/features/places/hooks/useSavedPlaces";
+
+import type { SavedPlaceType } from "@/features/places/types/place.types";
+
+import { HomeHeader } from "../components/HomeHeader";
+
+import { BookingBottomSheet } from "../components/BookingBottomSheet";
+
+import { HOME_CONFIG } from "../constants/home.constants";
+
+import { useRecentDestinations } from "@/features/places/hooks/useRecentDestinations";
+
+import type { RecentDestination } from "@/features/places/types/place.types";
+
 export function HomeScreen() {
+  // --------------------------------------------------
+  // References
+  // --------------------------------------------------
+
   const mapRef = useRef<MapController>(null);
+
+  const bottomSheetRef = useRef<BottomSheet>(null);
+
+  const recenterLock = useRef(false);
+
+  // --------------------------------------------------
+  // Layout and component state
+  // --------------------------------------------------
+
+  const { height: windowHeight } = useWindowDimensions();
+
+  const [containerHeight, setContainerHeight] = useState(0);
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -45,9 +87,139 @@ export function HomeScreen() {
 
   const [locationError, setLocationError] = useState<string | null>(null);
 
+  // --------------------------------------------------
+  // Authenticated rider
+  // --------------------------------------------------
+
   const firstName = useAuthStore((state) => state.session?.user.firstName);
 
-  const { location, isTracking, error } = useMapLocation();
+  // --------------------------------------------------
+  // Location store
+  // --------------------------------------------------
+
+  const setCurrentLocation = useLocationStore(
+    (state) => state.setCurrentLocation,
+  );
+
+  // --------------------------------------------------
+  // Saved places
+  // --------------------------------------------------
+
+  const {
+    home,
+    work,
+    isReady: areSavedPlacesReady,
+    removePlace,
+  } = useSavedPlaces();
+
+  const {
+    previewDestinations,
+    error: recentDestinationsError,
+    retry: retryRecentDestinations,
+    removeDestination,
+    clearDestinations,
+    isReady: isHistoryReady,
+    recordDestination,
+  } = useRecentDestinations();
+
+  const handleRecentDestinationPress = useCallback(
+    (destination: RecentDestination) => {
+      Alert.alert(destination.name, destination.address);
+    },
+    [],
+  );
+
+  const handleRecentDestinationLongPress = useCallback(
+    (destination: RecentDestination) => {
+      Alert.alert("Remove destination?", destination.name, [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+
+          onPress: () => {
+            try {
+              removeDestination(destination);
+            } catch {
+              Alert.alert("Unable to remove destination", "Please try again.");
+            }
+          },
+        },
+      ]);
+    },
+    [removeDestination],
+  );
+
+  const handleClearRecentDestinations = useCallback(() => {
+    Alert.alert(
+      "Clear destination history?",
+      "This will remove all your recent destinations from this device.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Clear history",
+          style: "destructive",
+
+          onPress: () => {
+            try {
+              clearDestinations();
+            } catch {
+              Alert.alert("Unable to clear history", "Please try again.");
+            }
+          },
+        },
+      ],
+    );
+  }, [clearDestinations]);
+
+  // --------------------------------------------------
+  // Bottom sheet animation
+  // --------------------------------------------------
+
+  const animatedSheetPosition = useSharedValue(windowHeight);
+
+  const recenterSpacing = HOME_CONFIG.map.recenterSpacing;
+
+  const recenterAnimatedStyle = useAnimatedStyle(() => {
+    const top = Math.max(
+      96,
+      animatedSheetPosition.value - 48 - recenterSpacing,
+    );
+
+    return {
+      transform: [
+        {
+          translateY: top,
+        },
+      ],
+    };
+  });
+
+  // --------------------------------------------------
+  // GPS tracking
+  // --------------------------------------------------
+
+  const { location, isTracking, error: trackingError } = useMapLocation();
+
+  // --------------------------------------------------
+  // Camera management
+  // --------------------------------------------------
+
+  const { recenter } = useMapCamera({
+    mapRef,
+    location,
+    isMapReady,
+  });
+
+  // --------------------------------------------------
+  // Nearby drivers
+  // --------------------------------------------------
 
   const {
     drivers,
@@ -60,6 +232,10 @@ export function HomeScreen() {
     enabled: __DEV__ && isMapReady,
   });
 
+  // --------------------------------------------------
+  // Synchronize driver markers
+  // --------------------------------------------------
+
   useNearbyDriverMarkers({
     mapRef,
     drivers,
@@ -67,17 +243,9 @@ export function HomeScreen() {
     enabled: isDriverTrackingActive,
   });
 
-  useEffect(() => {
-    if (__DEV__ && driverError) {
-      console.warn("[Ridevo] Nearby drivers:", driverError.message);
-    }
-  }, [driverError]);
-
-  const { recenter } = useMapCamera({
-    mapRef,
-    location,
-    isMapReady,
-  });
+  // --------------------------------------------------
+  // Synchronize rider location marker
+  // --------------------------------------------------
 
   useEffect(() => {
     if (!isMapReady || !mapRef.current) {
@@ -90,6 +258,7 @@ export function HomeScreen() {
       !isLocationFresh(location)
     ) {
       mapRef.current.clearUserLocation();
+
       return;
     }
 
@@ -99,112 +268,51 @@ export function HomeScreen() {
     );
   }, [location, isMapReady]);
 
-  const driverTestLocationRef = useRef<DriverCoordinates | null>(null);
+  // --------------------------------------------------
+  // Development driver diagnostics
+  // --------------------------------------------------
 
   useEffect(() => {
-    driverTestLocationRef.current = location
-      ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        }
-      : null;
-  }, [location]);
-
-  const hasDriverTestLocation = Boolean(location);
-
-  useEffect(() => {
-    if (!__DEV__ || !isMapReady || !hasDriverTestLocation) {
-      return;
+    if (__DEV__ && driverError) {
+      console.warn("[Ridevo] Nearby drivers:", driverError.message);
     }
+  }, [driverError]);
 
-    let disposed = false;
-
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    const controller = mapRef.current;
-
-    async function updateDrivers() {
-      if (disposed) return;
-
-      try {
-        const center = driverTestLocationRef.current;
-
-        if (!center) {
-          controller?.clearNearbyDrivers();
-
-          return;
-        }
-
-        const response = await driverService.getNearbyDrivers({
-          latitude: center.latitude,
-          longitude: center.longitude,
-          radius: 600,
-          limit: 10,
-        });
-
-        if (disposed) return;
-
-        controller?.setNearbyDrivers(
-          response.drivers.map((driver) => ({
-            id: driver.id,
-
-            coordinates: [
-              driver.coordinates.longitude,
-              driver.coordinates.latitude,
-            ],
-
-            heading: driver.heading,
-          })),
-        );
-      } catch (error) {
-        if (!disposed) {
-          console.warn("[Ridevo] Driver simulation failed:", error);
-        }
-      } finally {
-        if (!disposed) {
-          timeout = setTimeout(updateDrivers, 3000);
-        }
-      }
-    }
-
-    void updateDrivers();
-
-    return () => {
-      disposed = true;
-
-      if (timeout !== null) {
-        clearTimeout(timeout);
-      }
-
-      controller?.clearNearbyDrivers();
-    };
-  }, [isMapReady, hasDriverTestLocation]);
+  // --------------------------------------------------
+  // Recenter camera
+  // --------------------------------------------------
 
   const handleRecenter = useCallback(async () => {
-    if (isLocating || !isMapReady) {
+    if (recenterLock.current || !isMapReady) {
       return;
     }
 
     setLocationError(null);
 
+    // Use the existing location if it is fresh.
     if (recenter()) {
       return;
     }
 
+    recenterLock.current = true;
+
     setIsLocating(true);
 
     try {
-      const position = await locationService.getCurrentLocation();
+      const currentLocation = await locationService.getCurrentLocation();
 
-      if (!isValidCoordinates(position)) {
-        throw new Error("Invalid GPS coordinates.");
+      if (!isValidCoordinates(currentLocation)) {
+        throw new Error("Unable to determine your current location.");
       }
 
-      const coordinates = toMapboxCoordinates(position);
+      // Keep the shared location store synchronized.
+      setCurrentLocation(currentLocation);
+
+      const coordinates = toMapboxCoordinates(currentLocation);
 
       mapRef.current?.setUserLocation(
         coordinates,
-        position.accuracy ?? undefined,
+        currentLocation.accuracy ?? undefined,
       );
 
       mapRef.current?.setCamera({
@@ -218,98 +326,163 @@ export function HomeScreen() {
       setLocationError(
         cause instanceof Error
           ? cause.message
-          : "Unable to find your location.",
+          : "Unable to locate your device.",
       );
     } finally {
+      recenterLock.current = false;
+
       setIsLocating(false);
     }
-  }, [isLocating, isMapReady, recenter]);
+  }, [isMapReady, recenter, setCurrentLocation]);
 
-  const displayError = locationError ?? error;
+  // --------------------------------------------------
+  // Notifications
+  // --------------------------------------------------
+
+  const handleNotificationsPress = useCallback(() => {
+    Alert.alert(
+      "Notifications",
+      "The notifications screen will be available in a later milestone.",
+    );
+  }, []);
+
+  // --------------------------------------------------
+  // Destination search
+  // --------------------------------------------------
+
+  const handleDestinationPress = useCallback(() => {
+    Alert.alert(
+      "Destination search",
+      "Destination search will be implemented in R09.",
+    );
+  }, []);
+
+  // --------------------------------------------------
+  // Saved place selection
+  // --------------------------------------------------
+
+  const handleSavedPlacePress = useCallback(
+    (type: SavedPlaceType) => {
+      const place = type === "home" ? home : work;
+
+      const title = type === "home" ? "Home" : "Work";
+
+      if (!place) {
+        Alert.alert(
+          `Add ${title}`,
+          "Address search will be available in the destination search milestone.",
+        );
+
+        return;
+      }
+
+      Alert.alert(title, place.address);
+    },
+    [home, work],
+  );
+
+  // --------------------------------------------------
+  // Saved place removal
+  // --------------------------------------------------
+
+  const handleSavedPlaceLongPress = useCallback(
+    (type: SavedPlaceType) => {
+      const place = type === "home" ? home : work;
+
+      if (!place) {
+        return;
+      }
+
+      Alert.alert("Remove saved place?", place.address, [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+
+          onPress: () => {
+            try {
+              removePlace(type);
+            } catch {
+              Alert.alert("Unable to remove saved place", "Please try again.");
+            }
+          },
+        },
+      ]);
+    },
+    [home, work, removePlace],
+  );
+
+  // --------------------------------------------------
+  // Location settings
+  // --------------------------------------------------
+
+  const handleOpenSettings = useCallback(async () => {
+    try {
+      await locationService.openSettings();
+    } catch {
+      Alert.alert(
+        "Unable to open settings",
+        "Please open your device settings manually.",
+      );
+    }
+  }, []);
+
+  // --------------------------------------------------
+  // Derived state
+  // --------------------------------------------------
+
+  const displayError = locationError ?? trackingError;
+
+  // --------------------------------------------------
+  // Render
+  // --------------------------------------------------
 
   return (
     <Screen edges={["top"]}>
-      <View className="relative flex-1">
-        {/* Map */}
-        <RidevoMap
-          ref={mapRef}
-          styleURL={MAP_STYLES.light}
-          onReadyChange={setIsMapReady}
-        />
-
-        {/* Floating header */}
-        <View
-          pointerEvents="box-none"
-          className="absolute left-4 right-4 top-4"
-        >
-          <View
-            className="flex-row items-center justify-between
-              rounded-full border border-border
-              bg-white px-5 py-3"
-          >
-            <BrandLogo width={105} height={32} />
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              className="h-10 w-10 items-center
-                justify-center rounded-full bg-surface"
-            >
-              <Bell size={22} color="#101820" strokeWidth={1.8} />
-            </Pressable>
-          </View>
-
-          {/* GPS status */}
-          {displayError && (
-            <View
-              className="mt-3 rounded-2xl
-                border border-border bg-white p-3"
-            >
-              <Typography variant="small" className="text-muted">
-                {displayError}
-              </Typography>
-
-              <Pressable
-                onPress={() => {
-                  void locationService.openSettings();
-                }}
-                className="mt-2"
-              >
-                <Typography variant="small" className="font-semibold text-info">
-                  Open settings
-                </Typography>
-              </Pressable>
-            </View>
-          )}
-        </View>
-
-        {/* Recenter button */}
-        <View className="absolute bottom-4 right-4">
-          <RecenterButton
-            onPress={handleRecenter}
-            loading={isLocating}
-            disabled={!isMapReady}
+      <View
+        className="relative flex-1"
+        onLayout={(event) => {
+          setContainerHeight(event.nativeEvent.layout.height);
+        }}
+      >
+        {/* Full-screen map */}
+        <View style={StyleSheet.absoluteFill}>
+          <RidevoMap
+            ref={mapRef}
+            styleURL={MAP_STYLES.streets}
+            onReadyChange={setIsMapReady}
           />
         </View>
 
-        {__DEV__ && isTracking && (
+        {/* Floating header */}
+        <HomeHeader onNotificationsPress={handleNotificationsPress} />
+
+        {/* Location error */}
+        {displayError && (
           <View
-            className="absolute bottom-4 left-4
-              rounded-full bg-white px-3 py-2"
+            className="absolute left-4 right-4 top-28 rounded-2xl border border-border bg-white p-4"
+            style={styles.errorContainer}
           >
-            <Typography variant="caption">GPS active</Typography>
+            <Typography variant="small" className="text-muted">
+              {displayError}
+            </Typography>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open location settings"
+              onPress={handleOpenSettings}
+              className="mt-3 min-h-12 self-start justify-center"
+            >
+              <Typography variant="bodyMedium">Open settings</Typography>
+            </Pressable>
           </View>
         )}
 
-        {__DEV__ && isDriverTrackingActive && (
-          <View className="absolute left-4 top-24 rounded-full bg-primary px-3 py-2">
-            <Typography variant="caption" className="text-white">
-              {drivers.length} nearby drivers
-              {isFetchingDrivers ? " · Updating" : ""}
-            </Typography>
-          </View>
-        )}
-        {__DEV__ && (
+        {/* Development diagnostics */}
+        {__DEV__ && !displayError && (
           <MapDebugOverlay
             isMapReady={isMapReady}
             isTracking={isTracking}
@@ -319,30 +492,92 @@ export function HomeScreen() {
             lastUpdatedAt={lastUpdatedAt}
           />
         )}
-      </View>
 
-      {/* Temporary booking panel */}
-      <View
-        className="rounded-t-[28px] border-t
-          border-border bg-white px-6 pb-6 pt-4"
-      >
-        <View
-          className="mb-4 h-1 w-10 self-center
-            rounded-full bg-border"
-        />
+        {__DEV__ && isHistoryReady && (
+          <Pressable
+            onPress={() => {
+              recordDestination({
+                id: "test-ikeja-city-mall",
+                name: "Ikeja City Mall",
+                address: "Obafemi Awolowo Way, Ikeja",
+                coordinates: {
+                  latitude: 6.614,
+                  longitude: 3.358,
+                },
+                provider: "manual",
+              });
 
-        <Typography variant="small" className="text-muted">
-          {firstName ? `Welcome, ${firstName}` : "Your next journey"}
-        </Typography>
+              recordDestination({
+                id: "test-landmark-centre",
+                name: "Landmark Centre",
+                address: "Victoria Island, Lagos",
+                coordinates: {
+                  latitude: 6.423,
+                  longitude: 3.444,
+                },
+                provider: "manual",
+              });
+            }}
+            className="absolute right-4 top-28 rounded-full bg-primary px-4 py-3"
+            style={{ zIndex: 20 }}
+          >
+            <Typography variant="caption" className="text-white">
+              Seed history
+            </Typography>
+          </Pressable>
+        )}
 
-        <Typography variant="h1" className="mt-1">
-          Where to?
-        </Typography>
+        {/* Animated recenter button */}
+        {containerHeight > 0 && (
+          <Animated.View
+            pointerEvents="box-none"
+            style={[styles.recenterContainer, recenterAnimatedStyle]}
+          >
+            <RecenterButton
+              onPress={handleRecenter}
+              loading={isLocating}
+              disabled={!isMapReady}
+            />
+          </Animated.View>
+        )}
 
-        <Typography variant="body" className="mt-1 text-muted">
-          Your next journey starts here.
-        </Typography>
+        {/* Persistent booking bottom sheet */}
+        {containerHeight > 0 && (
+          <BookingBottomSheet
+            ref={bottomSheetRef}
+            firstName={firstName}
+            animatedPosition={animatedSheetPosition}
+            home={home}
+            work={work}
+            areSavedPlacesReady={areSavedPlacesReady}
+            recentDestinations={previewDestinations}
+            recentDestinationsError={recentDestinationsError}
+            onRetryRecentDestinations={() => {
+              void retryRecentDestinations();
+            }}
+            onDestinationPress={handleDestinationPress}
+            onSavedPlacePress={handleSavedPlacePress}
+            onSavedPlaceLongPress={handleSavedPlaceLongPress}
+            onRecentDestinationPress={handleRecentDestinationPress}
+            onRecentDestinationLongPress={handleRecentDestinationLongPress}
+            onClearRecentDestinations={handleClearRecentDestinations}
+          />
+        )}
       </View>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    zIndex: 11,
+    elevation: 4,
+  },
+
+  recenterContainer: {
+    position: "absolute",
+    top: 0,
+    right: HOME_CONFIG.map.recenterSpacing,
+    zIndex: 5,
+  },
+});

@@ -99,7 +99,7 @@ export function OtpInput({
           onBlur?.(event);
         }}
         style={styles.input}
-        className="hidden"
+        // className="hidden"
       />
     </View>
   );
@@ -111,5 +111,6 @@ const styles = StyleSheet.create({
     color: "transparent",
     backgroundColor: "transparent",
     fontSize: 20,
+    opacity: 0,
   },
 });
