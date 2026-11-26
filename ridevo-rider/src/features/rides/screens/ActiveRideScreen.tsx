@@ -1,14 +1,15 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Pressable,
   ScrollView,
   View,
 } from "react-native";
 
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
 import { CheckCircle2, MapPin, XCircle } from "lucide-react-native";
 
@@ -43,7 +44,10 @@ import { TripProgressCard } from "../components/TripProgressCard";
 
 import { TripSummaryCard } from "../components/TripSummaryCard";
 
+import { ActiveRideMap } from "../components/ActiveRideMap";
 import { DriverRatingCard } from "../components/DriverRatingCard";
+
+// import { useCallback, useRef, useState } from "react";
 
 const STATUS_CONTENT: Record<
   RideStatus,
@@ -96,11 +100,38 @@ const STATUS_CONTENT: Record<
 export function ActiveRideScreen() {
   const router = useRouter();
 
+
+  
+
   const { ride, error, refresh } = useActiveRide();
 
   const cancellationLock = useRef(false);
 
   const [isCancelling, setIsCancelling] = useState(false);
+
+
+  const shouldPreventBack = Boolean(
+    ride &&
+    (!isTerminalRideStatus(ride.status) ||
+      (ride.status === "completed" && ride.paymentStatus === "pending")),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!shouldPreventBack) {
+        return;
+      }
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => true,
+      );
+
+      return () => {
+        subscription.remove();
+      };
+    }, [shouldPreventBack]),
+  );
 
   const handleCancel = async () => {
     if (cancellationLock.current || !ride || !canCancelRide(ride.status)) {
@@ -194,19 +225,37 @@ export function ActiveRideScreen() {
 
   const terminal = isTerminalRideStatus(ride.status);
 
+  const showTrackingMap =
+    ride.status === "accepted" ||
+    ride.status === "arriving" ||
+    ride.status === "arrived" ||
+    ride.status === "in_progress";
+
   return (
     <Screen>
       <View className="flex-1">
+        {showTrackingMap && (
+          <View className="min-h-[180px] flex-1">
+            <ActiveRideMap key={ride.id} ride={ride} />
+          </View>
+        )}
+
         <ScrollView
-          className="flex-1"
+          className={showTrackingMap ? "max-h-[55%]" : "flex-1"}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             padding: 24,
-            gap: 24,
+            gap: 20,
             flexGrow: 1,
           }}
+
+          keyboardShouldPersistTaps="handled"
         >
-          <View className="items-center gap-4 pt-8">
+          <View
+            className={
+              showTrackingMap ? "items-center gap-3" : "items-center gap-4 pt-8"
+            }
+          >
             {ride.status === "searching" ? (
               <DriverMatchingRadar />
             ) : terminal ? (
